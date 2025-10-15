@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -68,7 +68,6 @@ export default function LotteryMachine() {
     const [showResults, setShowResults] = useState(false);
 
     const lotteryTeams = config?.teams.filter(team => team.isLottery) || [];
-    const remainingBalls = lotteryTeams.filter(team => !selectedBalls.has(team.id));
 
     useEffect(() => {
         if (config) {
@@ -85,20 +84,7 @@ export default function LotteryMachine() {
         setShowResults(false);
     };
 
-    const drawNextPick = () => {
-        if (currentPick >= (config?.lotteryTeams || 0)) {
-            finishLottery();
-            return;
-        }
-
-        const currentTeam = draftOrder[currentPick];
-        if (currentTeam) {
-            setSelectedBalls(prev => new Set([...prev, currentTeam.id]));
-            setCurrentPick(prev => prev + 1);
-        }
-    };
-
-    const finishLottery = () => {
+    const finishLottery = useCallback(() => {
         setTimeout(() => {
             setShowResults(true);
             setIsDrawing(false);
@@ -112,7 +98,20 @@ export default function LotteryMachine() {
                 setCurrentStep('results');
             }
         }, 2000);
-    };
+    }, [config, draftOrder, setResult, setCurrentStep, setIsAnimating]);
+
+    const drawNextPick = useCallback(() => {
+        if (currentPick >= (config?.lotteryTeams || 0)) {
+            finishLottery();
+            return;
+        }
+
+        const currentTeam = draftOrder[currentPick];
+        if (currentTeam) {
+            setSelectedBalls(prev => new Set([...prev, currentTeam.id]));
+            setCurrentPick(prev => prev + 1);
+        }
+    }, [currentPick, config?.lotteryTeams, draftOrder, finishLottery]);
 
     const skipAnimation = () => {
         if (config) {
@@ -135,7 +134,7 @@ export default function LotteryMachine() {
         } else if (isDrawing && currentPick >= (config?.lotteryTeams || 0)) {
             finishLottery();
         }
-    }, [isDrawing, currentPick, config?.lotteryTeams]);
+    }, [isDrawing, currentPick, config?.lotteryTeams, drawNextPick, finishLottery]);
 
     return (
         <div className="max-w-7xl mx-auto p-6 space-y-8">

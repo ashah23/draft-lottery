@@ -27,3 +27,13 @@ export interface DraftState {
     setIsAnimating: (isAnimating: boolean) => void;
     reset: () => void;
 }
+
+export interface SleeperUser {
+    user_id: string;
+    avatar: string;
+    display_name: string;
+    metadata: {
+        team_name: string | null;
+        avatar: string | null;
+    };
+}

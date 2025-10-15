@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Progress } from './ui/progress';
 import { useDraftStore } from '../store/useDraftStore';
-import { Team, DraftConfig } from '../types';
+import { Team, DraftConfig, SleeperUser } from '../types';
 import { validateDraftConfig } from '../utils/randomize';
 import { motion } from 'framer-motion';
+import { Download, Loader2 } from 'lucide-react';
 
 export default function SetupForm() {
     const { setConfig, setCurrentStep } = useDraftStore();
@@ -14,6 +15,9 @@ export default function SetupForm() {
     const [lotteryTeams, setLotteryTeams] = useState(6);
     const [teams, setTeams] = useState<Team[]>([]);
     const [errors, setErrors] = useState<string[]>([]);
+    const [sleeperLeagueId, setSleeperLeagueId] = useState('');
+    const [isImporting, setIsImporting] = useState(false);
+    const [importError, setImportError] = useState('');
 
     // Initialize teams when totalTeams or lotteryTeams changes
     useEffect(() => {
@@ -57,6 +61,71 @@ export default function SetupForm() {
         return teams
             .filter(team => team.isLottery)
             .reduce((sum, team) => sum + (team.percentage || 0), 0);
+    };
+
+    const importFromSleeper = async () => {
+        if (!sleeperLeagueId.trim()) {
+            setImportError('Please enter a Sleeper League ID');
+            return;
+        }
+
+        setIsImporting(true);
+        setImportError('');
+
+        try {
+            const response = await fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}/users`);
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch league data. Please check the League ID.');
+            }
+
+            const data = await response.json();
+            console.log(data);
+
+            // Extract team names from the API response
+            const teamNames: string[] = [];
+            data.forEach((user: SleeperUser) => {
+                if (user.metadata && user.metadata.team_name) {
+                    teamNames.push(user.metadata.team_name + ' - ' + user.display_name);
+                }
+            });
+
+            if (teamNames.length === 0) {
+                throw new Error('No team names found in this league');
+            }
+
+            // Update total teams to match imported teams
+            setTotalTeams(teamNames.length);
+
+            // Create new teams array with imported names
+            const newTeams: Team[] = [];
+
+            // Create lottery teams
+            for (let i = 0; i < Math.min(lotteryTeams, teamNames.length); i++) {
+                newTeams.push({
+                    id: i + 1,
+                    name: teamNames[i] || `Team ${i + 1}`,
+                    percentage: Math.floor(100 / Math.min(lotteryTeams, teamNames.length)),
+                    isLottery: true
+                });
+            }
+
+            // Create playoff teams
+            for (let i = lotteryTeams; i < teamNames.length; i++) {
+                newTeams.push({
+                    id: i + 1,
+                    name: teamNames[i] || `Team ${i + 1}`,
+                    isLottery: false
+                });
+            }
+
+            setTeams(newTeams);
+            setSleeperLeagueId('');
+        } catch (error) {
+            setImportError(error instanceof Error ? error.message : 'Failed to import teams');
+        } finally {
+            setIsImporting(false);
+        }
     };
 
     const handleStartLottery = () => {
@@ -147,6 +216,56 @@ export default function SetupForm() {
                                 />
                             </motion.div>
                         </div>
+
+                        {/* Sleeper Import Section */}
+                        <motion.div
+                            className="space-y-4"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-xl p-6 border border-blue-200/50 dark:border-blue-800/50">
+                                <div className="flex items-center space-x-3 mb-4">
+                                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                                        <Download className="w-4 h-4 text-white" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-foreground">Import from Sleeper</h3>
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-4">
+                                    Import team names directly from your Sleeper league using the League ID
+                                </p>
+                                <div className="flex space-x-3">
+                                    <Input
+                                        placeholder="Enter Sleeper League ID (e.g., 1180639804763353088)"
+                                        value={sleeperLeagueId}
+                                        onChange={(e) => setSleeperLeagueId(e.target.value)}
+                                        className="flex-1 h-10"
+                                    />
+                                    <Button
+                                        onClick={importFromSleeper}
+                                        disabled={isImporting || !sleeperLeagueId.trim()}
+                                        className="h-10 px-6"
+                                    >
+                                        {isImporting ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Importing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Download className="w-4 h-4 mr-2" />
+                                                Import Teams
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                                {importError && (
+                                    <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                        <p className="text-sm text-red-600 dark:text-red-400">{importError}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
 
                         {/* Lottery Teams */}
                         <motion.div
