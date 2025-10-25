@@ -16,7 +16,7 @@ export default function SetupForm() {
     const [lotteryTeams, setLotteryTeams] = useState(6);
     const [teams, setTeams] = useState<Team[]>([]);
     const [errors, setErrors] = useState<string[]>([]);
-    const [sleeperLeagueId, setSleeperLeagueId] = useState('');
+    const [sleeperLeagueId, setSleeperLeagueId] = useState('1180639804763353088');
     const [isImporting, setIsImporting] = useState(false);
     const [importError, setImportError] = useState('');
     const [isImportSectionOpen, setIsImportSectionOpen] = useState(false);
@@ -275,7 +275,7 @@ export default function SetupForm() {
                                         >
                                             <div className="pt-4 space-y-4">
                                                 <p className="text-sm text-muted-foreground">
-                                                    Import team names directly from your Sleeper league using the League ID
+                                                    Import team names directly from your Sleeper league using the League ID - Default is Pinnacle
                                                 </p>
                                                 <div className="flex flex-col sm:flex-row gap-3">
                                                     <Input

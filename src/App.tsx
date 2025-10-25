@@ -1,7 +1,7 @@
 import { useDraftStore } from '@/store/useDraftStore';
 import SetupForm from '@/components/setup/SetupForm';
 import LotteryMachine from '@/components/lottery/LotteryMachine';
-import DraftResults from '@/components/DraftSteps';
+import DraftResults from '@/components/DraftResults';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Trophy, Zap } from 'lucide-react';
