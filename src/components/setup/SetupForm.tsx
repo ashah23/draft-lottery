@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Progress } from './ui/progress';
-import { useDraftStore } from '../store/useDraftStore';
-import { Team, DraftConfig, SleeperUser } from '../types';
-import { validateDraftConfig } from '../utils/randomize';
-import { motion } from 'framer-motion';
-import { Download, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Progress } from '../ui/progress';
+import { useDraftStore } from '@/store/useDraftStore';
+import type { Team, DraftConfig, SleeperUser } from '@/types';
+import { validateDraftConfig } from '@/utils/randomize';
+import { Download, Loader2, ChevronDown } from 'lucide-react';
+import { TeamInput } from './TeamInput';
 
 export default function SetupForm() {
     const { setConfig, setCurrentStep } = useDraftStore();
@@ -18,6 +19,7 @@ export default function SetupForm() {
     const [sleeperLeagueId, setSleeperLeagueId] = useState('');
     const [isImporting, setIsImporting] = useState(false);
     const [importError, setImportError] = useState('');
+    const [isImportSectionOpen, setIsImportSectionOpen] = useState(false);
 
     // Initialize teams when totalTeams or lotteryTeams changes
     useEffect(() => {
@@ -80,32 +82,43 @@ export default function SetupForm() {
             }
 
             const data = await response.json();
-            console.log(data);
+
+            if (!Array.isArray(data)) {
+                throw new Error('Invalid data received from Sleeper API');
+            }
+            console.log('Sleeper API response:', data); // For debugging
 
             // Extract team names from the API response
             const teamNames: string[] = [];
             data.forEach((user: SleeperUser) => {
+                // Use display_name if team_name is not available
                 if (user.metadata && user.metadata.team_name) {
-                    teamNames.push(user.metadata.team_name + ' - ' + user.display_name);
+                    const teamName = user.metadata?.team_name
+                        ? `${user.metadata.team_name} - ${user.display_name}`
+                        : user.display_name;
+                    teamNames.push(teamName);
                 }
             });
 
             if (teamNames.length === 0) {
-                throw new Error('No team names found in this league');
+                throw new Error('No teams found in this league. Please check the League ID.');
             }
+
+            console.log('Imported teams:', teamNames); // For debugging
 
             // Update total teams to match imported teams
             setTotalTeams(teamNames.length);
 
             // Create new teams array with imported names
             const newTeams: Team[] = [];
+            const defaultPercentage = Math.floor(100 / Math.min(lotteryTeams, teamNames.length));
 
             // Create lottery teams
             for (let i = 0; i < Math.min(lotteryTeams, teamNames.length); i++) {
                 newTeams.push({
                     id: i + 1,
-                    name: teamNames[i] || `Team ${i + 1}`,
-                    percentage: Math.floor(100 / Math.min(lotteryTeams, teamNames.length)),
+                    name: teamNames[i],
+                    percentage: defaultPercentage,
                     isLottery: true
                 });
             }
@@ -114,14 +127,19 @@ export default function SetupForm() {
             for (let i = lotteryTeams; i < teamNames.length; i++) {
                 newTeams.push({
                     id: i + 1,
-                    name: teamNames[i] || `Team ${i + 1}`,
+                    name: teamNames[i],
                     isLottery: false
                 });
             }
 
             setTeams(newTeams);
             setSleeperLeagueId('');
+
+            // Force close the import section after successful import
+            setIsImportSectionOpen(false);
+
         } catch (error) {
+            console.error('Import error:', error); // For debugging
             setImportError(error instanceof Error ? error.message : 'Failed to import teams');
         } finally {
             setIsImporting(false);
@@ -158,16 +176,16 @@ export default function SetupForm() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
             >
-                <Card className="border-0 shadow-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl">
+                <Card className="border-0 shadow-xl bg-background/90 backdrop-blur supports-backdrop-filter:backdrop-blur-xl">
                     <CardHeader className="text-center pb-8">
                         <motion.div
-                            className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl mb-4 shadow-lg"
+                            className="inline-flex items-center justify-center w-16 h-16 bg-linear-to-r from-primary to-primary/60 rounded-2xl mb-4 shadow-lg"
                             animate={{ rotate: [0, 5, -5, 0] }}
                             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                         >
                             <span className="text-2xl">🏈</span>
                         </motion.div>
-                        <CardTitle className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                        <CardTitle className="text-4xl font-bold bg-linear-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
                             League Configuration
                         </CardTitle>
                         <CardDescription className="text-lg text-muted-foreground mt-2">
@@ -224,46 +242,77 @@ export default function SetupForm() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
                         >
-                            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-xl p-6 border border-blue-200/50 dark:border-blue-800/50">
-                                <div className="flex items-center space-x-3 mb-4">
-                                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                                        <Download className="w-4 h-4 text-white" />
+                            <div className="bg-linear-to-r from-primary/5 to-primary/10 rounded-xl p-6 border border-primary/20">
+                                <button
+                                    onClick={() => setIsImportSectionOpen(!isImportSectionOpen)}
+                                    className="w-full flex items-center justify-between text-left focus:outline-none"
+                                    aria-expanded={isImportSectionOpen}
+                                    aria-controls="sleeper-import-section"
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 bg-linear-to-r from-primary to-primary/60 rounded-lg flex items-center justify-center">
+                                            <Download className="w-4 h-4 text-primary-foreground" />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-foreground">Import from Sleeper</h3>
                                     </div>
-                                    <h3 className="text-lg font-bold text-foreground">Import from Sleeper</h3>
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-4">
-                                    Import team names directly from your Sleeper league using the League ID
-                                </p>
-                                <div className="flex space-x-3">
-                                    <Input
-                                        placeholder="Enter Sleeper League ID (e.g., 1180639804763353088)"
-                                        value={sleeperLeagueId}
-                                        onChange={(e) => setSleeperLeagueId(e.target.value)}
-                                        className="flex-1 h-10"
-                                    />
-                                    <Button
-                                        onClick={importFromSleeper}
-                                        disabled={isImporting || !sleeperLeagueId.trim()}
-                                        className="h-10 px-6"
+                                    <motion.div
+                                        animate={{ rotate: isImportSectionOpen ? 180 : 0 }}
+                                        transition={{ duration: 0.2 }}
                                     >
-                                        {isImporting ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                Importing...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Download className="w-4 h-4 mr-2" />
-                                                Import Teams
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                                {importError && (
-                                    <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
-                                        <p className="text-sm text-red-600 dark:text-red-400">{importError}</p>
-                                    </div>
-                                )}
+                                        <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                                    </motion.div>
+                                </button>
+
+                                <AnimatePresence>
+                                    {isImportSectionOpen && (
+                                        <motion.div
+                                            id="sleeper-import-section"
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: "auto", opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="pt-4 space-y-4">
+                                                <p className="text-sm text-muted-foreground">
+                                                    Import team names directly from your Sleeper league using the League ID
+                                                </p>
+                                                <div className="flex flex-col sm:flex-row gap-3">
+                                                    <Input
+                                                        placeholder="Enter Sleeper League ID (e.g., 1180639804763353088)"
+                                                        value={sleeperLeagueId}
+                                                        onChange={(e) => setSleeperLeagueId(e.target.value)}
+                                                        className="flex-1 h-10"
+                                                    />
+                                                    <Button
+                                                        onClick={importFromSleeper}
+                                                        disabled={isImporting || !sleeperLeagueId.trim()}
+                                                        className="h-10 px-6 whitespace-nowrap"
+                                                    >
+                                                        {isImporting ? (
+                                                            <>
+                                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                                <span className="hidden sm:inline">Importing...</span>
+                                                                <span className="sm:hidden">Import</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Download className="w-4 h-4 mr-2" />
+                                                                <span className="hidden sm:inline">Import Teams</span>
+                                                                <span className="sm:hidden">Import</span>
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                                {importError && (
+                                                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                                                        <p className="text-sm text-destructive">{importError}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </motion.div>
 
@@ -276,7 +325,7 @@ export default function SetupForm() {
                         >
                             <div className="flex items-center justify-between">
                                 <h3 className="text-xl font-bold text-foreground flex items-center space-x-2">
-                                    <span className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></span>
+                                    <span className="w-3 h-3 bg-linear-to-r from-primary to-primary/60 rounded-full"></span>
                                     <span>Lottery Teams</span>
                                 </h3>
                                 <div className="flex items-center space-x-3">
@@ -294,34 +343,15 @@ export default function SetupForm() {
 
                             <div className="space-y-3">
                                 {lotteryTeamsList.map((team, index) => (
-                                    <motion.div
+                                    <TeamInput
                                         key={team.id}
-                                        className="flex items-center space-x-4 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: 0.5 + index * 0.1 }}
-                                    >
-                                        <div className="w-7 h-7 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full flex items-center justify-center font-bold text-xs">
-                                            {index + 1}
-                                        </div>
-                                        <Input
-                                            placeholder="Enter team name"
-                                            value={team.name}
-                                            onChange={(e) => updateTeamName(team.id, e.target.value)}
-                                            className="flex-1 h-10 text-base font-medium border-0 bg-transparent focus:ring-0"
-                                        />
-                                        <div className="flex items-center space-x-2">
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                max="100"
-                                                value={team.percentage || 0}
-                                                onChange={(e) => updateTeamPercentage(team.id, parseFloat(e.target.value) || 0)}
-                                                className="w-20 h-10 text-center font-bold border-0 bg-transparent focus:ring-0"
-                                            />
-                                            <span className="text-sm font-semibold text-muted-foreground">%</span>
-                                        </div>
-                                    </motion.div>
+                                        team={team}
+                                        index={index}
+                                        isLottery={true}
+                                        lotteryTeams={lotteryTeams}
+                                        updateTeamName={updateTeamName}
+                                        updateTeamPercentage={updateTeamPercentage}
+                                    />
                                 ))}
                             </div>
                         </motion.div>
@@ -334,28 +364,19 @@ export default function SetupForm() {
                             transition={{ delay: 0.6 }}
                         >
                             <h3 className="text-xl font-bold text-foreground flex items-center space-x-2">
-                                <span className="w-3 h-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"></span>
+                                <span className="w-3 h-3 bg-linear-to-r from-primary/80 to-primary/40 rounded-full"></span>
                                 <span>Playoff Teams</span>
                             </h3>
                             <div className="space-y-2">
                                 {playoffTeamsList.map((team, index) => (
-                                    <motion.div
+                                    <TeamInput
                                         key={team.id}
-                                        className="flex items-center space-x-4 p-3 bg-muted/20 rounded-lg hover:bg-muted/40 transition-colors"
-                                        initial={{ opacity: 0, x: 20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: 0.7 + index * 0.1 }}
-                                    >
-                                        <div className="w-7 h-7 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-xs">
-                                            {lotteryTeams + index + 1}
-                                        </div>
-                                        <Input
-                                            placeholder="Enter team name"
-                                            value={team.name}
-                                            onChange={(e) => updateTeamName(team.id, e.target.value)}
-                                            className="flex-1 h-10 text-base font-medium border-0 bg-transparent focus:ring-0"
-                                        />
-                                    </motion.div>
+                                        team={team}
+                                        index={index}
+                                        isLottery={false}
+                                        lotteryTeams={lotteryTeams}
+                                        updateTeamName={updateTeamName}
+                                    />
                                 ))}
                             </div>
                         </motion.div>
@@ -393,7 +414,7 @@ export default function SetupForm() {
                             <Button
                                 onClick={handleStartLottery}
                                 size="lg"
-                                className="px-12 py-4 text-xl font-bold h-14 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300"
+                                className="px-12 py-4 text-xl font-bold h-14 bg-linear-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300"
                                 disabled={totalPercentage > 100}
                             >
                                 <span className="mr-2">🎲</span>

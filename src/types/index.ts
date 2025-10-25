@@ -16,14 +16,16 @@ export interface DraftResult {
     timestamp: string;
 }
 
+export type DraftStep = 'setup' | 'probability' | 'animating' | 'results';
+
 export interface DraftState {
     config: DraftConfig | null;
     result: DraftResult | null;
-    currentStep: 'setup' | 'animating' | 'results';
+    currentStep: DraftStep;
     isAnimating: boolean;
     setConfig: (config: DraftConfig) => void;
     setResult: (result: DraftResult) => void;
-    setCurrentStep: (step: 'setup' | 'animating' | 'results') => void;
+    setCurrentStep: (step: DraftStep) => void;
     setIsAnimating: (isAnimating: boolean) => void;
     reset: () => void;
 }

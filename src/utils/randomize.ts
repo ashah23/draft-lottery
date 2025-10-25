@@ -1,4 +1,4 @@
-import { DraftConfig, Team } from '../types';
+import type { DraftConfig, Team } from '@/types';
 
 /**
  * Weighted random selection algorithm

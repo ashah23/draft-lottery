@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DraftState, DraftConfig, DraftResult } from '../types';
+import type { DraftState, DraftConfig, DraftResult, DraftStep } from '@/types';
 
 export const useDraftStore = create<DraftState>((set) => ({
     config: null,
@@ -11,7 +11,7 @@ export const useDraftStore = create<DraftState>((set) => ({
 
     setResult: (result: DraftResult) => set({ result }),
 
-    setCurrentStep: (step: 'setup' | 'animating' | 'results') => set({ currentStep: step }),
+    setCurrentStep: (step: DraftStep) => set({ currentStep: step }),
 
     setIsAnimating: (isAnimating: boolean) => set({ isAnimating }),
 
